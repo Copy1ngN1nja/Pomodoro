@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomodoro Timer</title>
+    <link rel="icon" href="image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='18' r='12' fill='%23b71c1c'/><path d='M16 7 Q11 3 7 7 Q12 11 16 7Z' fill='%23388e3c'/><line x1='16' y1='7' x2='16' y2='11' stroke='%2333691e' stroke-width='2' stroke-linecap='round'/></svg>">
+    <style>
+        @import url('https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.16/400.css');
+        @import url('https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.16/700.css');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #1a1a2e;
+            transition: background 0.8s ease;
+            overflow: hidden;
+        }
+
+        body.work-mode {
+            background: #1a1a2e;
+        }
+
+        body.break-mode {
+            background: #1a2e1a;
+        }
+
+        .container {
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .mode-label {
+            font-size: 1.2rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3em;
+            margin-bottom: 2rem;
+            transition: color 0.8s ease;
+        }
+
+        .work-mode .mode-label {
+            color: #ff6b6b;
+        }
+
+        .break-mode .mode-label {
+            color: #51cf66;
+        }
+
+        .timer-ring-container {
+            position: relative;
+            width: 320px;
+            height: 320px;
+            margin: 0 auto 2.5rem;
+        }
+
+        .timer-ring {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+            pointer-events: none;
+        }
+
+        .timer-ring-bg {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.08);
+            stroke-width: 6;
+        }
+
+        .timer-ring-progress {
+            fill: none;
+            stroke-width: 6;
+            stroke-linecap: round;
+            transition: stroke 0.8s ease, stroke-dashoffset 0.3s ease;
+            filter: drop-shadow(0 0 8px currentColor);
+        }
+
+        .timer-ring-progress.no-transition {
+            transition: none;
+        }
+
+        .work-mode .timer-ring-progress {
+            stroke: #ff6b6b;
+        }
+
+        .break-mode .timer-ring-progress {
+            stroke: #51cf66;
+        }
+
+        .timer-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 4.5rem;
+            font-weight: 700;
+            color: #ffffff;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 0.05em;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .drag-handle {
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            background: #ffffff;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            cursor: grab;
+            box-shadow: 0 0 10px rgba(0,0,0,0.4), 0 0 15px currentColor;
+            z-index: 10;
+            pointer-events: auto;
+        }
+
+        .drag-handle:active {
+            cursor: grabbing;
+            transform: translate(-50%, -50%) scale(1.25);
+        }
+
+        .work-mode .drag-handle { color: #ff6b6b; }
+        .break-mode .drag-handle { color: #51cf66; }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.05);
+            color: #ffffff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            outline: none;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: scale(1.05);
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn svg {
+            width: 32px;
+            height: 32px;
+            fill: currentColor;
+            pointer-events: none;
+        }
+
+        .btn.alarm-active {
+            border-color: #ff6b6b;
+            background: rgba(255, 107, 107, 0.15);
+            animation: pulse-btn 0.8s ease-in-out infinite;
+        }
+
+        @keyframes pulse-btn {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.3); }
+            50% { box-shadow: 0 0 0 15px rgba(255, 107, 107, 0); }
+        }
+
+        .reset-btn {
+            display: inline-block;
+            margin-top: 1.5rem;
+            padding: 0.6rem 1.5rem;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: rgba(255, 255, 255, 0.3);
+            background: none;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .reset-btn:hover {
+            color: rgba(255, 255, 255, 0.6);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .glow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            height: 400px;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.15;
+            pointer-events: none;
+            transition: background 0.8s ease;
+        }
+
+        .work-mode .glow {
+            background: #ff6b6b;
+        }
+
+        .break-mode .glow {
+            background: #51cf66;
+        }
+
+        .alarm-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 107, 107, 0.08);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 0;
+        }
+
+        .alarm-overlay.active {
+            opacity: 1;
+            animation: flash-overlay 1s ease-in-out infinite;
+        }
+
+        @keyframes flash-overlay {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.05; }
+        }
+    </style>
+</head>
+<body class="work-mode">
+    <div class="alarm-overlay" id="alarmOverlay"></div>
+    <div class="glow"></div>
+
+    <div class="container">
+        <div class="mode-label" id="modeLabel">Work</div>
+
+        <div class="timer-ring-container" id="ringContainer">
+            <svg class="timer-ring" viewBox="0 0 320 320">
+                <circle class="timer-ring-bg" cx="160" cy="160" r="150" />
+                <circle class="timer-ring-progress" id="progressRing" cx="160" cy="160" r="150" />
+            </svg>
+            <div class="drag-handle" id="dragHandle"></div>
+            <div class="timer-display" id="timerDisplay">25:00</div>
+        </div>
+
+        <button class="btn" id="mainBtn">
+            <svg id="playIcon" viewBox="0 0 32 32">
+                <polygon points="8,4 28,16 8,28" />
+            </svg>
+            <svg id="pauseIcon" viewBox="0 0 32 32" style="display:none;">
+                <rect x="6" y="4" width="7" height="24" rx="2" />
+                <rect x="19" y="4" width="7" height="24" rx="2" />
+            </svg>
+        </button>
+
+        <br>
+        <button class="reset-btn" id="resetBtn">Reset</button>
+    </div>
+
+    <script>
+        const WORK_DURATION = 25 * 60;
+        const BREAK_DURATION = 5 * 60;
+        const CIRCUMFERENCE = 2 * Math.PI * 150;
+
+        let state = {
+            phase: 'work',
+            timeLeft: WORK_DURATION,
+            totalTime: WORK_DURATION,
+            isRunning: false,
+            isAlarm: false,
+            sessionCount: 0
+        };
+
+        let intervalId = null;
+        let alarmIntervalId = null;
+        let alarmTimeoutId = null;
+        let audioCtx = null;
+        let isDragging = false;
+        let lastAngle = null;
+
+        const progressRing = document.getElementById('progressRing');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const modeLabel = document.getElementById('modeLabel');
+        const mainBtn = document.getElementById('mainBtn');
+        const playIcon = document.getElementById('playIcon');
+        const pauseIcon = document.getElementById('pauseIcon');
+        const resetBtn = document.getElementById('resetBtn');
+        const alarmOverlay = document.getElementById('alarmOverlay');
+        const dragHandle = document.getElementById('dragHandle');
+        const ringContainer = document.getElementById('ringContainer');
+
+        progressRing.style.strokeDasharray = CIRCUMFERENCE;
+        progressRing.style.strokeDashoffset = 0;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        function playSwitchSound() {
+            const ctx = initAudio();
+            const now = ctx.currentTime;
+
+            const osc = ctx.createOscillator();
+            const oscGain = ctx.createGain();
+            osc.connect(oscGain);
+            oscGain.connect(ctx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(180, now);
+            osc.frequency.exponentialRampToValueAtTime(60, now + 0.09);
+            oscGain.gain.setValueAtTime(0.4, now);
+            oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+            osc.start(now);
+            osc.stop(now + 0.1);
+
+            const bufLen = ctx.sampleRate * 0.05;
+            const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+            const data = buf.getChannelData(0);
+            for (let i = 0; i < bufLen; i++) {
+                data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufLen * 0.2));
+            }
+            const noise = ctx.createBufferSource();
+            noise.buffer = buf;
+            const filter = ctx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.value = 2800;
+            filter.Q.value = 1.5;
+            const noiseGain = ctx.createGain();
+            noiseGain.gain.setValueAtTime(0.2, now);
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+            noise.connect(filter);
+            filter.connect(noiseGain);
+            noiseGain.connect(ctx.destination);
+            noise.start(now);
+            noise.stop(now + 0.05);
+        }
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+
+        function updateHandlePosition() {
+            const fraction = 1 - (state.timeLeft / state.totalTime);
+            const angleDeg = fraction * 360;
+            const rad = (angleDeg * Math.PI / 180) - (Math.PI / 2);
+            const x = 160 + 150 * Math.cos(rad);
+            const y = 160 + 150 * Math.sin(rad);
+            dragHandle.style.left = `${x}px`;
+            dragHandle.style.top = `${y}px`;
+        }
+
+        function updateDisplay() {
+            timerDisplay.textContent = formatTime(state.timeLeft);
+            const progress = 1 - (state.timeLeft / state.totalTime);
+            progressRing.style.strokeDashoffset = CIRCUMFERENCE * (1 - progress);
+            updateHandlePosition();
+        }
+
+        function updateMode() {
+            document.body.className = state.phase === 'work' ? 'work-mode' : 'break-mode';
+            modeLabel.textContent = state.phase === 'work' ? 'Work' : 'Break';
+        }
+
+        function clearAlarmTimers() {
+            if (alarmIntervalId) {
+                clearInterval(alarmIntervalId);
+                alarmIntervalId = null;
+            }
+            if (alarmTimeoutId) {
+                clearTimeout(alarmTimeoutId);
+                alarmTimeoutId = null;
+            }
+        }
+
+        function playAlarm() {
+            if (state.isAlarm) return;
+            clearAlarmTimers();
+            initAudio();
+            state.isAlarm = true;
+            alarmOverlay.classList.add('active');
+            mainBtn.classList.add('alarm-active');
+
+            const notes = [523.25, 659.25, 783.99, 1046.50, 783.99, 659.25];
+
+            function playBeepSequence() {
+                if (!state.isAlarm) return;
+                const now = audioCtx.currentTime;
+                notes.forEach((freq, i) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.type = 'sine';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.15, now + i * 0.2);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.2 + 0.4);
+                    osc.start(now + i * 0.2);
+                    osc.stop(now + i * 0.2 + 0.4);
+                });
+            }
+
+            playBeepSequence();
+            alarmIntervalId = setInterval(playBeepSequence, 2000);
+            alarmTimeoutId = setTimeout(() => {
+                if (state.isAlarm) stopAlarm();
+            }, 5000);
+        }
+
+        function stopAlarm() {
+            state.isAlarm = false;
+            alarmOverlay.classList.remove('active');
+            mainBtn.classList.remove('alarm-active');
+            clearAlarmTimers();
+        }
+
+        function tick() {
+            if (state.timeLeft <= 0) {
+                clearInterval(intervalId);
+                intervalId = null;
+                if (state.phase === 'work') {
+                    state.sessionCount++;
+                    state.phase = 'break';
+                    state.timeLeft = BREAK_DURATION;
+                    state.totalTime = BREAK_DURATION;
+                } else {
+                    state.phase = 'work';
+                    state.timeLeft = WORK_DURATION;
+                    state.totalTime = WORK_DURATION;
+                }
+                state.isRunning = false;
+                playIcon.style.display = '';
+                pauseIcon.style.display = 'none';
+                updateMode();
+                updateDisplay();
+                playAlarm();
+                return;
+            }
+            state.timeLeft--;
+            updateDisplay();
+        }
+
+        function startTimer() {
+            state.isRunning = true;
+            playIcon.style.display = 'none';
+            pauseIcon.style.display = '';
+            intervalId = setInterval(tick, 1000);
+        }
+
+        function pauseTimer() {
+            state.isRunning = false;
+            playIcon.style.display = '';
+            pauseIcon.style.display = 'none';
+            if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = null;
+            }
+        }
+
+        function resetTimer() {
+            stopAlarm();
+            if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = null;
+            }
+            state.isRunning = false;
+            state.phase = 'work';
+            state.timeLeft = WORK_DURATION;
+            state.totalTime = WORK_DURATION;
+            state.sessionCount = 0;
+            playIcon.style.display = '';
+            pauseIcon.style.display = 'none';
+            updateMode();
+            updateDisplay();
+        }
+
+        // Main action handler (Start / Pause / Stop Alarm & Start)
+        function handleMainAction() {
+            playSwitchSound();
+            if (state.isAlarm) {
+                stopAlarm();
+                // Immediately start the next phase
+                startTimer();
+                return;
+            }
+            if (state.isRunning) {
+                pauseTimer();
+            } else {
+                startTimer();
+            }
+        }
+
+        mainBtn.addEventListener('click', handleMainAction);
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                handleMainAction();
+            }
+        });
+
+        resetBtn.addEventListener('click', () => {
+            playSwitchSound();
+            resetTimer();
+        });
+
+        // Drag logic
+        function getAngleFromPointer(e) {
+            const rect = ringContainer.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            const dx = e.clientX - cx;
+            const dy = e.clientY - cy;
+            let angle = Math.atan2(dy, dx) * 180 / Math.PI;
+            return (angle + 90 + 360) % 360;
+        }
+
+        dragHandle.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            isDragging = true;
+            lastAngle = null;
+            dragHandle.setPointerCapture(e.pointerId);
+            document.body.style.userSelect = 'none';
+            document.body.style.cursor = 'grabbing';
+            if (state.isRunning) pauseTimer();
+            progressRing.classList.add('no-transition');
+            handleDragMove(e);
+        });
+
+        function handleDragMove(e) {
+            if (!isDragging) return;
+            let normAngle = getAngleFromPointer(e);
+
+            if (lastAngle !== null) {
+                let diff = normAngle - lastAngle;
+                if (diff > 180) diff -= 360;
+                if (diff < -180) diff += 360;
+                normAngle = lastAngle + diff;
+            }
+            lastAngle = normAngle;
+
+            let totalRotation = normAngle % 360;
+            if (totalRotation < 0) totalRotation += 360;
+            const fraction = totalRotation / 360;
+            state.timeLeft = Math.max(1, Math.round(state.totalTime * (1 - fraction)));
+            updateDisplay();
+        }
+
+        document.addEventListener('pointermove', handleDragMove);
+        document.addEventListener('pointerup', () => {
+            if (!isDragging) return;
+            isDragging = false;
+            lastAngle = null;
+            document.body.style.userSelect = '';
+            document.body.style.cursor = '';
+            progressRing.classList.remove('no-transition');
+            if (state.timeLeft <= 0) state.timeLeft = 1;
+            updateDisplay();
+        });
+
+        updateDisplay();
+        updateMode();
+    </script>
+</body>
+</html>
+
