@@ -520,6 +520,12 @@
                 e.preventDefault();
                 handleMainAction();
             }
+            // Используем e.code для независимости от раскладки (KeyR соответствует физической клавише)
+            if (e.code === 'KeyR') {
+                e.preventDefault();
+                playSwitchSound();
+                resetTimer();
+            }
         });
 
         resetBtn.addEventListener('click', () => {
